@@ -94,7 +94,6 @@ func TestConcurrency(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	// Teste de escrita concorrente
 	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
@@ -108,7 +107,6 @@ func TestConcurrency(t *testing.T) {
 	}
 	wg.Wait()
 
-	// Teste de leitura concorrente
 	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
@@ -121,10 +119,8 @@ func TestConcurrency(t *testing.T) {
 	}
 	wg.Wait()
 
-	// Teste misto: leitura e escrita concorrente
 	wg.Add(numGoroutines * 2)
 
-	// Goroutines de escrita
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
@@ -137,7 +133,6 @@ func TestConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// Goroutines de leitura
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
@@ -150,4 +145,45 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestConcurrencyWithEviction(t *testing.T) {
+	var evictedCount int64
+	var mu sync.Mutex
+
+	opts := Options{
+		evictCallback: func(key string, value interface{}) {
+			mu.Lock()
+			evictedCount++
+			mu.Unlock()
+		},
+	}
+
+	c := NewLRUCache(10, opts)
+
+	const numGoroutines = 5
+	const operationsPerGoroutine = 50
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < operationsPerGoroutine; j++ {
+				key := fmt.Sprintf("evict-key-%d-%d", id, j)
+				c.Set(key, j)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	mu.Lock()
+	finalEvictedCount := evictedCount
+	mu.Unlock()
+
+	if finalEvictedCount == 0 {
+		t.Errorf("should be some evictions, got %d", finalEvictedCount)
+	}
 }
