@@ -1,0 +1,153 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestSetOutRange(t *testing.T) {
+	opts := Options{
+		evictCallback: nil,
+	}
+
+	c := NewLRUCache(3, opts)
+
+	c.Set("a", 1)
+	testOrder(t, c, []string{"a"})
+
+	c.Set("b", 2)
+	testOrder(t, c, []string{"b", "a"})
+
+	c.Set("c", 3)
+	testOrder(t, c, []string{"c", "b", "a"})
+
+	c.Set("a", 4)
+	testOrder(t, c, []string{"a", "c", "b"})
+
+	c.Set("d", 5)
+	c.Set("e", 6)
+
+	testOrder(t, c, []string{"e", "d", "a"})
+}
+
+func TestGet(t *testing.T) {
+	opts := Options{
+		evictCallback: nil,
+	}
+	c := NewLRUCache(3, opts)
+
+	c.Set("a", 1)
+	c.Set("b", 2)
+	c.Set("c", 3)
+	c.Set("a", 4)
+
+	val := c.Get("a")
+	if val != 4 {
+		t.Errorf("Wrong value: %v expected: %v", 1, val)
+	}
+}
+
+func TestEvictCallback(t *testing.T) {
+	var evictedKey string
+
+	opts := Options{
+		evictCallback: func(key string, value interface{}) {
+			evictedKey = key
+		},
+	}
+	c := NewLRUCache(3, opts)
+
+	c.Set("a", 8)
+	c.Set("b", 16)
+	c.Set("c", 32)
+
+	c.Set("d", 48)
+
+	if evictedKey != "a" {
+		t.Errorf("evicted key should be 'a' and not %s", evictedKey)
+	}
+}
+
+func testOrder(t *testing.T, lru *LRUCache, want []string) {
+	i := 0
+	for elem := lru.order.Front(); elem != nil; elem = elem.Next() {
+		item := elem.Value.(*CacheItem)
+
+		if want[i] != item.key {
+			t.Errorf("Invalid order of key %s", item.key)
+		}
+
+		i++
+	}
+}
+
+func TestConcurrency(t *testing.T) {
+	opts := Options{
+		evictCallback: nil,
+	}
+	c := NewLRUCache(100, opts)
+
+	const numGoroutines = 10
+	const operationsPerGoroutine = 100
+
+	var wg sync.WaitGroup
+
+	// Teste de escrita concorrente
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < operationsPerGoroutine; j++ {
+				key := fmt.Sprintf("key-%d-%d", id, j)
+				value := id*1000 + j
+				c.Set(key, value)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Teste de leitura concorrente
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < operationsPerGoroutine; j++ {
+				key := fmt.Sprintf("key-%d-%d", id, j)
+				c.Get(key)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Teste misto: leitura e escrita concorrente
+	wg.Add(numGoroutines * 2)
+
+	// Goroutines de escrita
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < operationsPerGoroutine; j++ {
+				key := fmt.Sprintf("write-key-%d-%d", id, j)
+				value := id*2000 + j
+				c.Set(key, value)
+				time.Sleep(time.Microsecond) // Pequena pausa para simular operação real
+			}
+		}(i)
+	}
+
+	// Goroutines de leitura
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < operationsPerGoroutine; j++ {
+				key := fmt.Sprintf("key-%d-%d", id, j%50) // Lê chaves existentes
+				c.Get(key)
+				time.Sleep(time.Microsecond)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
