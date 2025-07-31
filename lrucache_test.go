@@ -128,7 +128,7 @@ func TestConcurrency(t *testing.T) {
 				key := fmt.Sprintf("write-key-%d-%d", id, j)
 				value := id*2000 + j
 				c.Set(key, value)
-				time.Sleep(time.Microsecond) // Pequena pausa para simular operação real
+				time.Sleep(time.Microsecond)
 			}
 		}(i)
 	}
@@ -137,7 +137,7 @@ func TestConcurrency(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < operationsPerGoroutine; j++ {
-				key := fmt.Sprintf("key-%d-%d", id, j%50) // Lê chaves existentes
+				key := fmt.Sprintf("key-%d-%d", id, j%50)
 				c.Get(key)
 				time.Sleep(time.Microsecond)
 			}
