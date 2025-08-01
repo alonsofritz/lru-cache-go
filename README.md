@@ -93,6 +93,9 @@ Common eviction strategies include:
 - **Eviction Callback:** Supports a user-defined function evictCallback triggered when an entry is evicted.
 - **Optional Logging:** The logs flag in Options enables printing of the current cache order and actions taken.
 
+
+<img width="1121" height="325" alt="Data Representation" src="https://github.com/user-attachments/assets/a176ef50-ca96-4560-a10b-2a1ebf7b03f1" />
+
 ### Asymptotic Complexity of LRU Cache Operations
 
 This LRU cache implementation is optimized for performance, offering **constant time O(1)** operations for both retrieval and updates, thanks to the combination of a hashmap and a doubly linked list.
