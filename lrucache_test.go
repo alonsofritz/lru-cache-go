@@ -43,9 +43,9 @@ func TestGet(t *testing.T) {
 	c.Set("c", 3)
 	c.Set("a", 4)
 
-	val := c.Get("a")
-	if val != 4 {
-		t.Errorf("Wrong value: %v expected: %v", 1, val)
+	val, found := c.Get("a")
+	if !found || val != 4 {
+		t.Errorf("Wrong value: %v expected: %v", 4, val)
 	}
 }
 

@@ -81,16 +81,23 @@ func (l *LRUCache) Set(key string, value interface{}) bool {
 	return true
 }
 
-func (l *LRUCache) Get(key string) (value interface{}) {
+func (l *LRUCache) Get(key string) (value interface{}, found bool) {
 	l.Lock()
 	defer l.Unlock()
 
 	if elem, ok := l.keyMap[key]; ok {
+		l.order.MoveToFront(elem)
 		item := elem.Value.(*CacheItem)
-		return item.value
+
+		if l.options.logs {
+			log.Printf("Elem %s moved to the front", key)
+			l.printList()
+		}
+
+		return item.value, true
 	}
 
-	return nil
+	return nil, false
 }
 
 func (l *LRUCache) printList() {
